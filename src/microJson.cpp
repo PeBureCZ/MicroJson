@@ -1,5 +1,8 @@
 #include "microJson.h"
 
+#include <fstream>
+#include <istream>
+
 namespace mjs
 {
 	JsonValue::JsonValue(bool b)
@@ -32,6 +35,12 @@ namespace mjs
 		type = JsonType::String;
 	}
 
+	JsonValue::JsonValue(const char* s)
+	{
+		value = s;
+		type = JsonType::String;
+	}
+
 	JsonValue::JsonValue(const mJsonArray& arr)
 	{
 		value = arr;
@@ -41,6 +50,12 @@ namespace mjs
 	JsonValue::JsonValue(const mJsonObject& obj)
 	{
 		value = obj;
+		type = JsonType::Object;
+	}
+
+	JsonValue::JsonValue(mJsonObject&& obj)
+	{
+		value = std::move(obj);
 		type = JsonType::Object;
 	}
 
@@ -222,33 +237,6 @@ namespace mjs
 		pushValue(key, JsonValue(std::move(value)));
 	}
 
-	void JsonObject::pushArray(std::string key, const mJsonArray& arr)
-	{
-		pushValue(key, JsonValue(arr));
-	}
-
-	void JsonObject::moveArray(std::string key, mJsonArray&& arr)
-	{
-		pushValue(key, JsonValue(std::move(arr)));
-	}
-
-	void JsonObject::pushObject(std::string key, const JsonObject& obj)
-	{
-		pushValue(key, JsonValue(obj.getObject()));
-	}
-
-	void JsonObject::pushValue(std::string key, JsonValue value)
-	{
-		auto it = m_object.find(key);
-		if (it != m_object.end())
-		{
-			_ASSERT(false); //duplicate key, overwriting value
-			it->second = std::move(value);
-		}
-		else
-			m_object.emplace(std::move(key), std::move(value));
-	}
-
 	void JsonArray::pushValue(JsonValue value)
 	{
 		m_values.push_back(std::move(value));
@@ -279,98 +267,393 @@ namespace mjs
 		m_values.emplace_back(JsonValue(value));
 	}
 
-	void JsonRoot::pushValue(std::string key, JsonValue value)
+	mJsonArray JsonArray::move()
 	{
-		moveValue(std::move(key), std::move(value));
+		return std::move(m_values);
 	}
 
-	void JsonRoot::moveValue(std::string key, JsonValue&& value)
+	void JsonObject::pushValue(std::string key, const JsonValue& value)
 	{
-		root.emplace_back(BaseJsonItem(std::move(key), std::move(value)));
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = value;
+		}
+		else
+			m_object.emplace(std::move(key), value);
 	}
 
-	void JsonRoot::pushObject(std::string key, const JsonObject& obj)
+	void JsonObject::moveValue(std::string key, JsonValue&& value)
 	{
-		root.emplace_back(BaseJsonItem(std::move(key), obj));
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = std::move(value);
+		}
+		else
+			m_object.emplace(std::move(key), std::move(value));
 	}
 
-	void JsonRoot::moveObject(std::string key, JsonObject&& obj)
+	void JsonObject::pushObject(std::string key, const mJsonObject& obj)
 	{
-		root.emplace_back(BaseJsonItem(std::move(key), std::move(obj)));
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = obj;
+		}
+		else
+			m_object.emplace(std::move(key), obj);
 	}
 
-	void JsonRoot::pushArray(std::string key, const JsonArray& arr)
+	void JsonObject::moveObject(std::string key, mJsonObject&& obj)
 	{
-		root.emplace_back(BaseJsonItem(std::move(key), arr));
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = std::move(obj);
+		}
+		else
+			m_object.emplace(std::move(key), std::move(obj));
 	}
 
-	void JsonRoot::moveArray(std::string key, JsonArray&& arr)
+	void JsonObject::pushArray(std::string key, const mJsonArray& arr)
 	{
-		root.emplace_back(BaseJsonItem(std::move(key), std::move(arr)));
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = arr;
+		}
+		else
+			m_object.emplace(std::move(key), arr);
 	}
 
-	[[nodiscard]] std::string JsonRoot::serialize() const
+	void JsonObject::moveArray(std::string key, mJsonArray&& arr)
+	{
+		auto it = m_object.find(key);
+		if (it != m_object.end())
+		{
+			_ASSERT(false); //duplicate key, overwriting value
+			it->second = std::move(arr);
+		}
+		else
+			m_object.emplace(std::move(key), std::move(arr));
+	}
+
+	[[nodiscard]] std::string JsonObject::serialize() const
 	{
 		std::string result = "{";
 
-		for (const auto& basicItem : root)
+		for (const auto& [key, value] : m_object)
 		{
 			if (!result.empty() && result.back() != '{')
 				result += ",";
 
-			result += "\"" + basicItem.getKey() + "\":";
-
-			if (std::holds_alternative<JsonValue>(basicItem.getValue()))
-			{
-				const auto& value = std::get<JsonValue>(basicItem.getValue());
-				result += value.serialize();
-			}
-			else if (std::holds_alternative<JsonObject>(basicItem.getValue()))
-			{
-				const auto& obj = std::get<JsonObject>(basicItem.getValue());
-
-				result += "{";
-				bool isFirst = true;
-				for (const auto& [key, val] : obj.getObject())
-				{
-					if (!isFirst)
-						result += ",";
-					else
-						isFirst = false;
-					result += "\"" + key + "\":" + val.serialize();
-				}
-				result += "}";
-			}
-			else if (std::holds_alternative<JsonArray>(basicItem.getValue()))
-			{
-				const auto& arr = std::get<JsonArray>(basicItem.getValue());
-
-				result += "[";
-				bool isFirst = true;
-				for (const auto& val : arr.getValues())
-				{
-					if (!isFirst)
-						result += ",";
-					else
-						isFirst = false;
-					result += val.serialize();
-				}
-				result += "]";
-			}
+			result += "\"" + key + "\":";
+			result += value.serialize();
 		}
 		return result += "}";
 	}
 
-	[[nodiscard]] std::optional<JsonRoot> JsonDeserializer::deserialize(const std::string& jsonString) noexcept
+	mJsonObject JsonObject::move()
 	{
-		_ASSERT(false); // Not implemented yet
-		return std::nullopt;
+		return std::move(m_object);
 	}
 
-	[[nodiscard]] std::optional<JsonRoot> JsonDeserializer::deserialize(const std::filesystem::path& jsonFilePath) noexcept
+	[[nodiscard]] bool JsonSerializer::serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root) noexcept
 	{
-		_ASSERT(false); // Not implemented yet
-		return std::nullopt;
+		namespace fs = std::filesystem;
+		fs::path dirPath(directoryPath);
+		if (!fs::exists(dirPath) || !fs::is_directory(dirPath) || fileName.empty())
+			return false;
+
+		fs::path filePath = dirPath / fileName;
+		std::ofstream file(filePath);
+
+		if (!file.is_open())
+			return false;
+
+		file << root.serialize();
+		file.close();
+		return true;
+	}
+
+	[[nodiscard]] std::optional<JsonObject> JsonParser::parse() noexcept
+	{
+		skipWhitespace();
+
+		if (peek() != '{')
+			return std::nullopt;
+
+		JsonObject obj;
+		if (!parseObject(obj))
+			return std::nullopt;
+
+		skipWhitespace();
+
+		return obj;
+	}
+
+	char JsonParser::peek() const noexcept
+	{
+		return m_pos < m_text.size()
+			? m_text[m_pos]
+			: '\0';
+	}
+
+	char JsonParser::get() noexcept
+	{
+		return m_pos < m_text.size()
+			? m_text[m_pos++]
+			: '\0';
+	}
+
+	bool JsonParser::match(char c) noexcept
+	{
+		if (peek() == c)
+		{
+			++m_pos;
+			return true;
+		}
+		return false;
+	}
+
+	void JsonParser::skipWhitespace() noexcept
+	{
+		while (std::isspace(static_cast<unsigned char>(peek())))
+			++m_pos;
+	}
+
+	[[nodiscard]] bool JsonParser::parseObject(JsonObject& obj) noexcept
+	{
+		if (!match('{'))
+			return false;
+
+		skipWhitespace();
+
+		if (match('}'))
+			return true; // empty object
+
+		while (true)
+		{
+			skipWhitespace();
+
+			std::string key;
+			if (!parseString(key))
+				return false;
+
+			skipWhitespace();
+
+			if (!match(':'))
+				return false;
+
+			skipWhitespace();
+
+			JsonValue value;
+			if (!parseValue(value))
+				return false;
+
+			obj.moveValue(std::move(key), std::move(value));
+
+			skipWhitespace();
+
+			if (match('}'))
+				break;
+
+			if (!match(','))
+				return false;
+		}
+
+		return true;
+	}
+
+	[[nodiscard]] bool JsonParser::parseValue(JsonValue& value) noexcept
+	{
+		skipWhitespace();
+
+		if (peek() == '"')
+		{
+			std::string s;
+			if (!parseString(s))
+				return false;
+
+			value = JsonValue(std::move(s));
+			return true;
+		}
+		else if (std::isdigit(peek()) || peek() == '-')
+		{
+			return parseNumber(value);
+		}
+		else if (peek() == '{')
+		{
+			JsonObject obj;
+			if (!parseObject(obj))
+				return false;
+
+			value = JsonValue(obj.move());
+			return true;
+		}
+		else if (peek() == '[')
+		{
+			return parseArray(value);
+		}
+		else if (peek() == 't' || peek() == 'f')
+		{
+			return parseBool(value);
+		}
+		else if (peek() == 'n')
+		{
+			return parseNull(value);
+		}
+		else
+		{
+			_ASSERT(false); //unhandled or error value
+		}
+
+		return false;
+	}
+
+	[[nodiscard]] bool JsonParser::parseArray(JsonValue& value) noexcept
+	{
+		match('[');
+
+		mJsonArray arr;
+
+		skipWhitespace();
+
+		if (match(']'))
+		{
+			value = JsonValue(arr);
+			return true;
+		}
+
+		while (true)
+		{
+			JsonValue elem;
+			if (!parseValue(elem))
+				return false;
+
+			arr.push_back(std::move(elem));
+
+			skipWhitespace();
+
+			if (match(']'))
+				break;
+
+			if (!match(','))
+				return false;
+		}
+
+		value = JsonValue(arr);
+		return true;
+	}
+
+	[[nodiscard]] bool JsonParser::parseString(std::string& out) noexcept
+	{
+		if (!match('"'))
+			return false;
+
+		out.clear();
+
+		while (peek() != '"' && peek() != '\0')
+		{
+			char c = get();
+
+			// minimal escape support
+			if (c == '\\')
+			{
+				char next = get();
+				switch (next)
+				{
+				case '"': out.push_back('"'); break;
+				case '\\': out.push_back('\\'); break;
+				case '/': out.push_back('/'); break;
+				case 'b': out.push_back('\b'); break;
+				case 'f': out.push_back('\f'); break;
+				case 'n': out.push_back('\n'); break;
+				case 'r': out.push_back('\r'); break;
+				case 't': out.push_back('\t'); break;
+				default: return false;
+				}
+			}
+			else
+				out.push_back(c);
+		}
+
+		return match('"');
+	}
+
+	[[nodiscard]] bool JsonParser::parseBool(JsonValue& value) noexcept
+	{
+		if (m_text.substr(m_pos, 4) == "true")
+		{
+			m_pos += 4;
+			value = JsonValue(true);
+			return true;
+		}
+
+		if (m_text.substr(m_pos, 5) == "false")
+		{
+			m_pos += 5;
+			value = JsonValue(false);
+			return true;
+		}
+
+		return false;
+	}
+
+	[[nodiscard]] bool JsonParser::parseNull(JsonValue& value) noexcept
+	{
+		if (m_text.substr(m_pos, 4) == "null")
+		{
+			m_pos += 4;
+			value = JsonValue(nullptr);
+			return true;
+		}
+
+		return false;
+	}
+
+
+	[[nodiscard]] bool JsonParser::parseNumber(JsonValue& value) noexcept
+	{
+		size_t start = m_pos;
+
+		if (peek() == '-') get();
+
+		while (std::isdigit(peek()))
+			get();
+
+		bool isDouble = false;
+
+		if (peek() == '.')
+		{
+			isDouble = true;
+			get();
+
+			while (std::isdigit(peek()))
+				get();
+		}
+
+		std::string numStr(m_text.substr(start, m_pos - start));
+
+		try
+		{
+			if (isDouble)
+				value = JsonValue(std::stod(numStr));
+			else
+				value = JsonValue((int64_t)std::stoll(numStr));
+		}
+		catch (const std::exception&)
+		{
+			_ASSERT(false); //invalid number format
+			return false;
+		}
+		return true;
 	}
 }
 

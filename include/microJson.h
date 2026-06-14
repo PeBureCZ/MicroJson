@@ -9,6 +9,7 @@
 #include <memory>
 #include <filesystem>
 
+
 namespace mjs
 {
 
@@ -44,6 +45,7 @@ namespace mjs
 	class JsonValue
 	{
 	public:
+		JsonValue() = default;
 		JsonValue(const JsonValue& other) = default;
 		JsonValue(JsonValue&& other) = default;
 
@@ -51,9 +53,11 @@ namespace mjs
 		explicit JsonValue(int i);
 		explicit JsonValue(int64_t i);
 		explicit JsonValue(double d);
-		JsonValue(std::string s);
+		explicit JsonValue(std::string s);
+		explicit JsonValue(const char* s);
 		JsonValue(const mJsonArray& arr);
 		JsonValue(const mJsonObject& obj);
+		JsonValue(mJsonObject&& obj);
 
 		JsonValue& operator=(const JsonValue& other) = default;
 		JsonValue& operator=(JsonValue&& other) = default;
@@ -69,6 +73,8 @@ namespace mjs
 		[[nodiscard]] bool isInt() const { return type == JsonType::Number_int; }
 		[[nodiscard]] bool isDouble() const { return type == JsonType::Number_double; }
 		[[nodiscard]] bool isString() const { return type == JsonType::String; }
+		[[nodiscard]] bool isObject() const { return type == JsonType::Object; }
+		[[nodiscard]] bool isArray() const { return type == JsonType::Array; }
 
 		[[nodiscard]] JsonType getType() const { return type; }
 
@@ -89,7 +95,7 @@ namespace mjs
 		[[nodiscard]] std::string serialize() const;
 
 	private:
-		mJsonValue value; 
+		mJsonValue value;
 		JsonType type = JsonType::Null;
 	};
 
@@ -100,15 +106,23 @@ namespace mjs
 
 		const mJsonObject& getObject() const { return m_object; };
 
-		void pushValue(std::string key, JsonValue value);
+		void pushValue(std::string key, const JsonValue& value);
 		void pushValue(std::string key, bool value);
 		void pushValue(std::string key, int value);
 		void pushValue(std::string key, int64_t value);
 		void pushValue(std::string key, double value);
 		void pushValue(std::string key, std::string value);
+		void moveValue(std::string key, JsonValue&& value);
+
 		void pushArray(std::string key, const mJsonArray& arr);
 		void moveArray(std::string key, mJsonArray&& arr);
-		void pushObject(std::string key, const JsonObject& obj);
+
+		void pushObject(std::string key, const mJsonObject& obj);
+		void moveObject(std::string key, mJsonObject&& obj);
+
+		[[nodiscard]] std::string serialize() const;
+
+		mJsonObject move();
 
 	private:
 		mJsonObject m_object;
@@ -126,6 +140,9 @@ namespace mjs
 		void pushValue(int64_t value);
 		void pushValue(double value);
 		void pushValue(const std::string& value);
+
+		mJsonArray move();
+
 	private:
 		std::vector<JsonValue> m_values;
 	};
@@ -143,32 +160,52 @@ namespace mjs
 		[[nodiscard]] bool hasKey() const { return !item.first.empty(); };
 
 		const mJsonBaseItem& getValue() const { return item.second; }
+
 	private:
 		mJsonItem item;
 	};
 
-	class JsonRoot
+	class JsonSerializer
 	{
 	public:
-
-		JsonRoot() = default;
-
-		void pushValue(std::string key, JsonValue value);
-		void moveValue(std::string key, JsonValue&& value);
-		void pushObject(std::string key, const JsonObject& obj);
-		void moveObject(std::string key, JsonObject&& obj);
-		void pushArray(std::string key, const JsonArray& arr);
-		void moveArray(std::string key, JsonArray&& arr);
-		[[nodiscard]] std::string serialize() const;
-
-	private:
-		std::vector<BaseJsonItem> root;
+		static [[nodiscard]] bool serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root) noexcept;
 	};
 
-	class JsonDeserializer
+	class JsonParser
 	{
-		public:
-			static [[nodiscard]] std::optional<JsonRoot> deserialize(const std::string& jsonString) noexcept;
-			static [[nodiscard]] std::optional<JsonRoot> deserialize(const std::filesystem::path& jsonFilePath) noexcept;
+	public:
+		explicit JsonParser(std::string_view text)
+			: m_text(text)
+		{
+		}
+
+		[[nodiscard]] std::optional<JsonObject> parse() noexcept;
+
+	private:
+
+		//return next char without consuming it, return '\0' if end of text
+		char peek() const noexcept;
+
+		//consume and return next char, return '\0' if end of text
+		char get() noexcept;
+
+		//if next char matches c, consume it and return true, otherwise return false without consuming
+		bool match(char c) noexcept;
+
+		//shift to next non-whitespace character
+		void skipWhitespace() noexcept;
+
+		[[nodiscard]] bool parseObject(JsonObject& obj) noexcept;
+		[[nodiscard]] bool parseValue(JsonValue& value) noexcept;
+		[[nodiscard]] bool parseArray(JsonValue& value) noexcept;
+		[[nodiscard]] bool parseString(std::string& out) noexcept;
+		[[nodiscard]] bool parseBool(JsonValue& value) noexcept;
+		[[nodiscard]] bool parseNull(JsonValue& value) noexcept;
+		[[nodiscard]] bool parseNumber(JsonValue& value) noexcept;
+
+
+	private:
+		std::string_view m_text;
+		size_t m_pos = 0;
 	};
 }
