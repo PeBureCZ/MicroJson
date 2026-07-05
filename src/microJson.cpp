@@ -344,18 +344,33 @@ namespace mjs
 			m_object.emplace(std::move(key), std::move(arr));
 	}
 
-	[[nodiscard]] std::string JsonObject::serialize() const
+	[[nodiscard]] std::string JsonObject::serialize(const bool makeLinesBetweenObjects) const
 	{
 		std::string result = "{";
 
+		bool isFirst = true;
+
+		if (makeLinesBetweenObjects)
+			result += "\n";
+
 		for (const auto& [key, value] : m_object)
 		{
-			if (!result.empty() && result.back() != '{')
+			if (!isFirst)
+			{
 				result += ",";
+				if (makeLinesBetweenObjects)
+					result += "\n";
+			}
+			else
+				isFirst = false;
 
 			result += "\"" + key + "\":";
 			result += value.serialize();
 		}
+
+		if (makeLinesBetweenObjects)
+			result += "\n";
+
 		return result += "}";
 	}
 
@@ -364,7 +379,7 @@ namespace mjs
 		return std::move(m_object);
 	}
 
-	[[nodiscard]] bool JsonSerializer::serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root) noexcept
+	[[nodiscard]] bool JsonSerializer::serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root, const bool makeLinesBetweenObjects) noexcept
 	{
 		namespace fs = std::filesystem;
 		fs::path dirPath(directoryPath);
@@ -377,7 +392,7 @@ namespace mjs
 		if (!file.is_open())
 			return false;
 
-		file << root.serialize();
+		file << root.serialize(makeLinesBetweenObjects);
 		file.close();
 		return true;
 	}

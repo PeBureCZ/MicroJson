@@ -120,7 +120,7 @@ namespace mjs
 		void pushObject(std::string key, const mJsonObject& obj);
 		void moveObject(std::string key, mJsonObject&& obj);
 
-		[[nodiscard]] std::string serialize() const;
+		[[nodiscard]] std::string serialize(const bool makeLinesBetweenObjects = false) const;
 
 		mJsonObject move();
 
@@ -168,7 +168,7 @@ namespace mjs
 	class JsonSerializer
 	{
 	public:
-		static [[nodiscard]] bool serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root) noexcept;
+		static [[nodiscard]] bool serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root, const bool makeLinesBetweenObjects = false) noexcept;
 	};
 
 	class JsonParser

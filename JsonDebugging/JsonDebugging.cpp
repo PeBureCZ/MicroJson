@@ -1,11 +1,21 @@
 #include <iostream>
 #include <string>
+#include <filesystem>
+#include <windows.h>
 
 #include "..\include\microJson.h"
 
 #include <vector>
 #include <variant>
 #include <memory>
+
+static std::string getExecutablePath()
+{
+	char buffer[MAX_PATH];
+	GetModuleFileNameA(NULL, buffer, MAX_PATH);
+	std::string::size_type pos = std::string(buffer).find_last_of("\\/");
+	return std::string(buffer).substr(0, pos);
+}
 
 int main()
 {
@@ -37,7 +47,8 @@ int main()
 	obj.moveObject("obj - objInObj", objInObj.move());
 	root.pushObject("part - object", obj.getObject());
 
-	mjs::JsonSerializer::serialize("D:\\VS_projects\\MicroJson\\dLib", "output1.json", root);
+	std::string exePath = getExecutablePath();
+	mjs::JsonSerializer::serialize(exePath, "output1.json", root, false);
 
 	auto str = root.serialize();
 
@@ -47,7 +58,7 @@ int main()
 	if (newObj_opt.has_value())
 	{
 		auto& newObj = newObj_opt.value();
-		mjs::JsonSerializer::serialize("D:\\VS_projects\\MicroJson\\dLib", "output2.json", newObj);
+		mjs::JsonSerializer::serialize(exePath, "output2.json", newObj);
 	}
 	else
 	{
