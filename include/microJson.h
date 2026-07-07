@@ -78,10 +78,10 @@ namespace mjs
 
 		[[nodiscard]] JsonType getType() const { return type; }
 
-		//[[nodiscard]] ValueType getValue() const { return value; }
 		[[nodiscard]] bool asBoolean() const noexcept;
 		[[nodiscard]] int64_t asInt() const noexcept;
 		[[nodiscard]] double asDouble() const noexcept;
+		[[nodiscard]] const std::optional<mJsonObject>& asObject() const noexcept;
 		[[nodiscard]] const std::string& asString() const noexcept;
 		[[nodiscard]] std::string copyString() const noexcept;
 
@@ -174,38 +174,32 @@ namespace mjs
 	class JsonParser
 	{
 	public:
-		explicit JsonParser(std::string_view text)
-			: m_text(text)
-		{
-		}
-
-		[[nodiscard]] std::optional<JsonObject> parse() noexcept;
+		explicit JsonParser() = default;
+		static [[nodiscard]] std::optional<JsonObject> parse(std::string_view text) noexcept;
 
 	private:
 
 		//return next char without consuming it, return '\0' if end of text
-		char peek() const noexcept;
+		static char peek(std::string_view text, size_t& charPos) noexcept;
 
 		//consume and return next char, return '\0' if end of text
-		char get() noexcept;
+		static char get(std::string_view text, size_t& charPos) noexcept;
 
 		//if next char matches c, consume it and return true, otherwise return false without consuming
-		bool match(char c) noexcept;
+		static bool match(std::string_view text, char c, size_t& charPos) noexcept;
 
 		//shift to next non-whitespace character
-		void skipWhitespace() noexcept;
+		static void skipWhitespace(std::string_view text, size_t& charPos) noexcept;
 
-		[[nodiscard]] bool parseObject(JsonObject& obj) noexcept;
-		[[nodiscard]] bool parseValue(JsonValue& value) noexcept;
-		[[nodiscard]] bool parseArray(JsonValue& value) noexcept;
-		[[nodiscard]] bool parseString(std::string& out) noexcept;
-		[[nodiscard]] bool parseBool(JsonValue& value) noexcept;
-		[[nodiscard]] bool parseNull(JsonValue& value) noexcept;
-		[[nodiscard]] bool parseNumber(JsonValue& value) noexcept;
+		static [[nodiscard]] bool parseObject(std::string_view text, JsonObject& obj, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseValue(std::string_view text, JsonValue& value, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseArray(std::string_view text, JsonValue& value, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseString(std::string_view text, std::string& out, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseBool(std::string_view text, JsonValue& value, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseNull(std::string_view text, JsonValue& value, size_t& charPos) noexcept;
+		static [[nodiscard]] bool parseNumber(std::string_view text, JsonValue& value, size_t& charPos) noexcept;
 
 
 	private:
-		std::string_view m_text;
-		size_t m_pos = 0;
 	};
 }

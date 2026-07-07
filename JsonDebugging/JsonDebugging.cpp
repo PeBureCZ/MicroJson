@@ -52,8 +52,7 @@ int main()
 
 	auto str = root.serialize();
 
-	mjs::JsonParser parser(str);
-	auto newObj_opt = parser.parse();
+	auto newObj_opt = mjs::JsonParser::parse(str);
 
 	if (newObj_opt.has_value())
 	{

@@ -92,6 +92,18 @@ namespace mjs
 		}
 	}
 
+	[[nodiscard]] const std::optional<mJsonObject>& JsonValue::asObject() const noexcept
+	{
+		if (isObject())
+			return std::get<mJsonObject>(value);
+		else
+		{
+			_ASSERT(false);
+			static const std::optional<mJsonObject> emptyObject;
+			return emptyObject;
+		}
+	}
+
 	const std::string& JsonValue::asString() const noexcept
 	{
 		if (isString())
@@ -397,132 +409,133 @@ namespace mjs
 		return true;
 	}
 
-	[[nodiscard]] std::optional<JsonObject> JsonParser::parse() noexcept
+	[[nodiscard]] std::optional<JsonObject> JsonParser::parse(std::string_view text) noexcept
 	{
-		skipWhitespace();
+		size_t charPos = 0;
+		skipWhitespace(text, charPos);
 
-		if (peek() != '{')
+		if (peek(text, charPos) != '{')
 			return std::nullopt;
 
 		JsonObject obj;
-		if (!parseObject(obj))
+		if (!parseObject(text, obj, charPos))
 			return std::nullopt;
 
-		skipWhitespace();
+		skipWhitespace(text, charPos);
 
 		return obj;
 	}
 
-	char JsonParser::peek() const noexcept
+	char JsonParser::peek(std::string_view text, size_t& charPos) noexcept
 	{
-		return m_pos < m_text.size()
-			? m_text[m_pos]
+		return charPos < text.size()
+			? text[charPos]
 			: '\0';
 	}
 
-	char JsonParser::get() noexcept
+	char JsonParser::get(std::string_view text, size_t& charPos) noexcept
 	{
-		return m_pos < m_text.size()
-			? m_text[m_pos++]
+		return charPos < text.size()
+			? text[charPos++]
 			: '\0';
 	}
 
-	bool JsonParser::match(char c) noexcept
+	bool JsonParser::match(std::string_view text, char c, size_t& charPos) noexcept
 	{
-		if (peek() == c)
+		if (peek(text, charPos) == c)
 		{
-			++m_pos;
+			++charPos;
 			return true;
 		}
 		return false;
 	}
 
-	void JsonParser::skipWhitespace() noexcept
+	void JsonParser::skipWhitespace(std::string_view text, size_t& charPos) noexcept
 	{
-		while (std::isspace(static_cast<unsigned char>(peek())))
-			++m_pos;
+		while (std::isspace(static_cast<unsigned char>(peek(text, charPos))))
+			++charPos;
 	}
 
-	[[nodiscard]] bool JsonParser::parseObject(JsonObject& obj) noexcept
+	[[nodiscard]] bool JsonParser::parseObject(std::string_view text, JsonObject& obj, size_t& charPos) noexcept
 	{
-		if (!match('{'))
+		if (!match(text, '{', charPos))
 			return false;
 
-		skipWhitespace();
+		skipWhitespace(text, charPos);
 
-		if (match('}'))
+		if (match(text, '}', charPos))
 			return true; // empty object
 
 		while (true)
 		{
-			skipWhitespace();
+			skipWhitespace(text, charPos);
 
 			std::string key;
-			if (!parseString(key))
+			if (!parseString(text, key, charPos))
 				return false;
 
-			skipWhitespace();
+			skipWhitespace(text, charPos);
 
-			if (!match(':'))
+			if (!match(text, ':', charPos))
 				return false;
 
-			skipWhitespace();
+			skipWhitespace(text, charPos);
 
 			JsonValue value;
-			if (!parseValue(value))
+			if (!parseValue(text, value, charPos))
 				return false;
 
 			obj.moveValue(std::move(key), std::move(value));
 
-			skipWhitespace();
+			skipWhitespace(text, charPos);
 
-			if (match('}'))
+			if (match(text, '}', charPos))
 				break;
 
-			if (!match(','))
+			if (!match(text, ',', charPos))
 				return false;
 		}
 
 		return true;
 	}
 
-	[[nodiscard]] bool JsonParser::parseValue(JsonValue& value) noexcept
+	[[nodiscard]] bool JsonParser::parseValue(std::string_view text, JsonValue& value, size_t& charPos) noexcept
 	{
-		skipWhitespace();
+		skipWhitespace(text, charPos);
 
-		if (peek() == '"')
+		if (peek(text, charPos) == '"')
 		{
 			std::string s;
-			if (!parseString(s))
+			if (!parseString(text, s, charPos))
 				return false;
 
 			value = JsonValue(std::move(s));
 			return true;
 		}
-		else if (std::isdigit(peek()) || peek() == '-')
+		else if (std::isdigit(peek(text, charPos)) || peek(text, charPos) == '-')
 		{
-			return parseNumber(value);
+			return parseNumber(text, value, charPos);
 		}
-		else if (peek() == '{')
+		else if (peek(text, charPos) == '{')
 		{
 			JsonObject obj;
-			if (!parseObject(obj))
+			if (!parseObject(text, obj, charPos))
 				return false;
 
 			value = JsonValue(obj.move());
 			return true;
 		}
-		else if (peek() == '[')
+		else if (peek(text, charPos) == '[')
 		{
-			return parseArray(value);
+			return parseArray(text, value, charPos);
 		}
-		else if (peek() == 't' || peek() == 'f')
+		else if (peek(text, charPos) == 't' || peek(text, charPos) == 'f')
 		{
-			return parseBool(value);
+			return parseBool(text, value, charPos);
 		}
-		else if (peek() == 'n')
+		else if (peek(text, charPos) == 'n')
 		{
-			return parseNull(value);
+			return parseNull(text, value, charPos);
 		}
 		else
 		{
@@ -532,15 +545,15 @@ namespace mjs
 		return false;
 	}
 
-	[[nodiscard]] bool JsonParser::parseArray(JsonValue& value) noexcept
+	[[nodiscard]] bool JsonParser::parseArray(std::string_view text, JsonValue& value, size_t& charPos) noexcept
 	{
-		match('[');
+		match(text, '[', charPos);
 
 		mJsonArray arr;
 
-		skipWhitespace();
+		skipWhitespace(text, charPos);
 
-		if (match(']'))
+		if (match(text, ']', charPos))
 		{
 			value = JsonValue(arr);
 			return true;
@@ -549,17 +562,17 @@ namespace mjs
 		while (true)
 		{
 			JsonValue elem;
-			if (!parseValue(elem))
+			if (!parseValue(text, elem, charPos))
 				return false;
 
 			arr.push_back(std::move(elem));
 
-			skipWhitespace();
+			skipWhitespace(text, charPos);
 
-			if (match(']'))
+			if (match(text, ']', charPos))
 				break;
 
-			if (!match(','))
+			if (!match(text, ',', charPos))
 				return false;
 		}
 
@@ -567,21 +580,20 @@ namespace mjs
 		return true;
 	}
 
-	[[nodiscard]] bool JsonParser::parseString(std::string& out) noexcept
+	[[nodiscard]] bool JsonParser::parseString(std::string_view text, std::string& out, size_t& charPos) noexcept
 	{
-		if (!match('"'))
+		if (!match(text, '"', charPos))
 			return false;
 
 		out.clear();
 
-		while (peek() != '"' && peek() != '\0')
+		while (peek(text, charPos) != '"' && peek(text, charPos) != '\0')
 		{
-			char c = get();
-
+			char c = get(text, charPos);
 			// minimal escape support
 			if (c == '\\')
 			{
-				char next = get();
+				char next = get(text, charPos);
 				switch (next)
 				{
 				case '"': out.push_back('"'); break;
@@ -599,21 +611,21 @@ namespace mjs
 				out.push_back(c);
 		}
 
-		return match('"');
+		return match(text, '"', charPos);
 	}
 
-	[[nodiscard]] bool JsonParser::parseBool(JsonValue& value) noexcept
+	[[nodiscard]] bool JsonParser::parseBool(std::string_view text, JsonValue& value, size_t& charPos) noexcept
 	{
-		if (m_text.substr(m_pos, 4) == "true")
+		if (text.substr(charPos, 4) == "true")
 		{
-			m_pos += 4;
+			charPos += 4;
 			value = JsonValue(true);
 			return true;
 		}
 
-		if (m_text.substr(m_pos, 5) == "false")
+		if (text.substr(charPos, 5) == "false")
 		{
-			m_pos += 5;
+			charPos += 5;
 			value = JsonValue(false);
 			return true;
 		}
@@ -621,11 +633,11 @@ namespace mjs
 		return false;
 	}
 
-	[[nodiscard]] bool JsonParser::parseNull(JsonValue& value) noexcept
+	[[nodiscard]] bool JsonParser::parseNull(std::string_view text, JsonValue& value, size_t& charPos) noexcept
 	{
-		if (m_text.substr(m_pos, 4) == "null")
+		if (text.substr(charPos, 4) == "null")
 		{
-			m_pos += 4;
+			charPos += 4;
 			value = JsonValue(nullptr);
 			return true;
 		}
@@ -634,27 +646,27 @@ namespace mjs
 	}
 
 
-	[[nodiscard]] bool JsonParser::parseNumber(JsonValue& value) noexcept
+	[[nodiscard]] bool JsonParser::parseNumber(std::string_view text, JsonValue& value, size_t& charPos) noexcept
 	{
-		size_t start = m_pos;
+		size_t start = charPos;
 
-		if (peek() == '-') get();
+		if (peek(text, charPos) == '-') get(text, charPos);
 
-		while (std::isdigit(peek()))
-			get();
+		while (std::isdigit(peek(text, charPos)))
+			get(text, charPos);
 
 		bool isDouble = false;
 
-		if (peek() == '.')
+		if (peek(text, charPos) == '.')
 		{
 			isDouble = true;
-			get();
+			get(text, charPos);
 
-			while (std::isdigit(peek()))
-				get();
+			while (std::isdigit(peek(text, charPos)))
+				get(text, charPos);
 		}
 
-		std::string numStr(m_text.substr(start, m_pos - start));
+		std::string numStr(text.substr(start, charPos - start));
 
 		try
 		{
