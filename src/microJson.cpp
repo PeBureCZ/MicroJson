@@ -92,15 +92,27 @@ namespace mjs
 		}
 	}
 
-	[[nodiscard]] const std::optional<mJsonObject>& JsonValue::asObject() const noexcept
+	[[nodiscard]] const mJsonObject& JsonValue::asObject() const noexcept
 	{
 		if (isObject())
 			return std::get<mJsonObject>(value);
 		else
 		{
 			_ASSERT(false);
-			static const std::optional<mJsonObject> emptyObject;
+			static const mJsonObject emptyObject;
 			return emptyObject;
+		}
+	}
+
+	const mJsonArray& JsonValue::asArray() const noexcept
+	{
+		if (isArray())
+			return std::get<mJsonArray>(value);
+		else
+		{
+			_ASSERT(false);
+			static const mJsonArray emptyArray;
+			return emptyArray;
 		}
 	}
 
@@ -277,6 +289,11 @@ namespace mjs
 	void JsonArray::pushValue(const std::string& value)
 	{
 		m_values.emplace_back(JsonValue(value));
+	}
+
+	void JsonArray::moveValue(JsonValue&& value)
+	{
+		m_values.push_back(std::move(value));
 	}
 
 	mJsonArray JsonArray::move()

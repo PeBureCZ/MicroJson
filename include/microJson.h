@@ -81,7 +81,8 @@ namespace mjs
 		[[nodiscard]] bool asBoolean() const noexcept;
 		[[nodiscard]] int64_t asInt() const noexcept;
 		[[nodiscard]] double asDouble() const noexcept;
-		[[nodiscard]] const std::optional<mJsonObject>& asObject() const noexcept;
+		[[nodiscard]] const mJsonObject& asObject() const noexcept;
+		[[nodiscard]] const mJsonArray& asArray() const noexcept;
 		[[nodiscard]] const std::string& asString() const noexcept;
 		[[nodiscard]] std::string copyString() const noexcept;
 
@@ -135,6 +136,8 @@ namespace mjs
 		const mJsonArray& getValues() const { return m_values; };
 
 		void pushValue(JsonValue value);
+		void moveValue(JsonValue&& value);
+
 		void pushValue(bool value);
 		void pushValue(int value);
 		void pushValue(int64_t value);
