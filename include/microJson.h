@@ -58,6 +58,7 @@ namespace mjs
 		JsonValue(const mJsonArray& arr);
 		JsonValue(const mJsonObject& obj);
 		JsonValue(mJsonObject&& obj);
+		JsonValue(const mJsonValue& newValue);
 
 		JsonValue& operator=(const JsonValue& other) = default;
 		JsonValue& operator=(JsonValue&& other) = default;
@@ -143,6 +144,8 @@ namespace mjs
 		void pushValue(int64_t value);
 		void pushValue(double value);
 		void pushValue(const std::string& value);
+
+		void pushVector(const std::vector<mJsonValue>& vectorValues);
 
 		mJsonArray move();
 

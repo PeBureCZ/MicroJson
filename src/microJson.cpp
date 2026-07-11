@@ -59,6 +59,25 @@ namespace mjs
 		type = JsonType::Object;
 	}
 
+	JsonValue::JsonValue(const mJsonValue& newValue)
+	{
+		value = newValue;
+		if (std::holds_alternative<std::nullptr_t>(newValue))
+			type = JsonType::Null;
+		else if (std::holds_alternative<bool>(newValue))
+			type = JsonType::Boolean;
+		else if (std::holds_alternative<int64_t>(newValue))
+			type = JsonType::Number_int;
+		else if (std::holds_alternative<double>(newValue))
+			type = JsonType::Number_double;
+		else if (std::holds_alternative<std::string>(newValue))
+			type = JsonType::String;
+		else if (std::holds_alternative<mJsonArray>(newValue))
+			type = JsonType::Array;
+		else if (std::holds_alternative<mJsonObject>(newValue))
+			type = JsonType::Object;
+	}
+
 	bool JsonValue::asBoolean() const
 	{
 		if (isBoolean())
@@ -289,6 +308,15 @@ namespace mjs
 	void JsonArray::pushValue(const std::string& value)
 	{
 		m_values.emplace_back(JsonValue(value));
+	}
+
+	void JsonArray::pushVector(const std::vector<mJsonValue>& vectorValues)
+	{
+		mJsonArray newArrayValue;
+		newArrayValue.reserve(vectorValues.size());
+		for (const auto& value : vectorValues)
+			newArrayValue.emplace_back(value);
+		m_values.emplace_back(std::move(newArrayValue));
 	}
 
 	void JsonArray::moveValue(JsonValue&& value)
