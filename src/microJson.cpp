@@ -59,7 +59,7 @@ namespace mjs
 		type = JsonType::Object;
 	}
 
-	bool JsonValue::asBoolean() const noexcept
+	bool JsonValue::asBoolean() const
 	{
 		if (isBoolean())
 			return std::get<bool>(value);
@@ -70,7 +70,7 @@ namespace mjs
 		}
 	}
 
-	int64_t JsonValue::asInt() const noexcept
+	int64_t JsonValue::asInt() const
 	{
 		if (isInt())
 			return std::get<int64_t>(value);
@@ -81,7 +81,7 @@ namespace mjs
 		}
 	}
 
-	double JsonValue::asDouble() const noexcept
+	double JsonValue::asDouble() const
 	{
 		if (isDouble())
 			return std::get<double>(value);
@@ -92,7 +92,7 @@ namespace mjs
 		}
 	}
 
-	[[nodiscard]] const mJsonObject& JsonValue::asObject() const noexcept
+	[[nodiscard]] const mJsonObject& JsonValue::asObject() const
 	{
 		if (isObject())
 			return std::get<mJsonObject>(value);
@@ -104,7 +104,7 @@ namespace mjs
 		}
 	}
 
-	const mJsonArray& JsonValue::asArray() const noexcept
+	const mJsonArray& JsonValue::asArray() const
 	{
 		if (isArray())
 			return std::get<mJsonArray>(value);
@@ -116,7 +116,7 @@ namespace mjs
 		}
 	}
 
-	const std::string& JsonValue::asString() const noexcept
+	const std::string& JsonValue::asString() const
 	{
 		if (isString())
 			return std::get<std::string>(value);
@@ -128,7 +128,7 @@ namespace mjs
 		}
 	}
 
-	std::string JsonValue::copyString() const noexcept
+	std::string JsonValue::copyString() const
 	{
 		if (isString())
 			return std::get<std::string>(value);
@@ -410,54 +410,68 @@ namespace mjs
 
 	[[nodiscard]] bool JsonSerializer::serialize(const std::string& directoryPath, const std::string& fileName, const JsonObject& root, const bool makeLinesBetweenObjects) noexcept
 	{
-		namespace fs = std::filesystem;
-		fs::path dirPath(directoryPath);
-		if (!fs::exists(dirPath) || !fs::is_directory(dirPath) || fileName.empty())
-			return false;
+		try
+		{
+			namespace fs = std::filesystem;
+			fs::path dirPath(directoryPath);
+			if (!fs::exists(dirPath) || !fs::is_directory(dirPath) || fileName.empty())
+				return false;
 
-		fs::path filePath = dirPath / fileName;
-		std::ofstream file(filePath);
+			fs::path filePath = dirPath / fileName;
+			std::ofstream file(filePath);
 
-		if (!file.is_open())
-			return false;
+			if (!file.is_open())
+				return false;
 
-		file << root.serialize(makeLinesBetweenObjects);
-		file.close();
+			file << root.serialize(makeLinesBetweenObjects);
+			file.close();
+		}
+		catch (...)
+		{
+			_ASSERT(false);
+		}
 		return true;
 	}
 
 	[[nodiscard]] std::optional<JsonObject> JsonParser::parse(std::string_view text) noexcept
 	{
-		size_t charPos = 0;
-		skipWhitespace(text, charPos);
-
-		if (peek(text, charPos) != '{')
-			return std::nullopt;
-
 		JsonObject obj;
-		if (!parseObject(text, obj, charPos))
-			return std::nullopt;
+		try
+		{
+			size_t charPos = 0;
+			skipWhitespace(text, charPos);
 
-		skipWhitespace(text, charPos);
+			if (peek(text, charPos) != '{')
+				return std::nullopt;
+
+			if (!parseObject(text, obj, charPos))
+				return std::nullopt;
+
+			skipWhitespace(text, charPos);
+		}
+		catch (...)
+		{
+			_ASSERT(false);
+		}
 
 		return obj;
 	}
 
-	char JsonParser::peek(std::string_view text, size_t& charPos) noexcept
+	char JsonParser::peek(std::string_view text, size_t& charPos)
 	{
 		return charPos < text.size()
 			? text[charPos]
 			: '\0';
 	}
 
-	char JsonParser::get(std::string_view text, size_t& charPos) noexcept
+	char JsonParser::get(std::string_view text, size_t& charPos)
 	{
 		return charPos < text.size()
 			? text[charPos++]
 			: '\0';
 	}
 
-	bool JsonParser::match(std::string_view text, char c, size_t& charPos) noexcept
+	bool JsonParser::match(std::string_view text, char c, size_t& charPos)
 	{
 		if (peek(text, charPos) == c)
 		{
@@ -467,13 +481,13 @@ namespace mjs
 		return false;
 	}
 
-	void JsonParser::skipWhitespace(std::string_view text, size_t& charPos) noexcept
+	void JsonParser::skipWhitespace(std::string_view text, size_t& charPos)
 	{
 		while (std::isspace(static_cast<unsigned char>(peek(text, charPos))))
 			++charPos;
 	}
 
-	[[nodiscard]] bool JsonParser::parseObject(std::string_view text, JsonObject& obj, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseObject(std::string_view text, JsonObject& obj, size_t& charPos)
 	{
 		if (!match(text, '{', charPos))
 			return false;
@@ -516,7 +530,7 @@ namespace mjs
 		return true;
 	}
 
-	[[nodiscard]] bool JsonParser::parseValue(std::string_view text, JsonValue& value, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseValue(std::string_view text, JsonValue& value, size_t& charPos)
 	{
 		skipWhitespace(text, charPos);
 
@@ -562,7 +576,7 @@ namespace mjs
 		return false;
 	}
 
-	[[nodiscard]] bool JsonParser::parseArray(std::string_view text, JsonValue& value, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseArray(std::string_view text, JsonValue& value, size_t& charPos)
 	{
 		match(text, '[', charPos);
 
@@ -597,7 +611,7 @@ namespace mjs
 		return true;
 	}
 
-	[[nodiscard]] bool JsonParser::parseString(std::string_view text, std::string& out, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseString(std::string_view text, std::string& out, size_t& charPos)
 	{
 		if (!match(text, '"', charPos))
 			return false;
@@ -631,7 +645,7 @@ namespace mjs
 		return match(text, '"', charPos);
 	}
 
-	[[nodiscard]] bool JsonParser::parseBool(std::string_view text, JsonValue& value, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseBool(std::string_view text, JsonValue& value, size_t& charPos)
 	{
 		if (text.substr(charPos, 4) == "true")
 		{
@@ -650,7 +664,7 @@ namespace mjs
 		return false;
 	}
 
-	[[nodiscard]] bool JsonParser::parseNull(std::string_view text, JsonValue& value, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseNull(std::string_view text, JsonValue& value, size_t& charPos)
 	{
 		if (text.substr(charPos, 4) == "null")
 		{
@@ -663,7 +677,7 @@ namespace mjs
 	}
 
 
-	[[nodiscard]] bool JsonParser::parseNumber(std::string_view text, JsonValue& value, size_t& charPos) noexcept
+	[[nodiscard]] bool JsonParser::parseNumber(std::string_view text, JsonValue& value, size_t& charPos)
 	{
 		size_t start = charPos;
 
