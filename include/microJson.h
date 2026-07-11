@@ -145,7 +145,9 @@ namespace mjs
 		void pushValue(double value);
 		void pushValue(const std::string& value);
 
-		void pushVector(const std::vector<mJsonValue>& vectorValues);
+		void pushValues(const std::vector<mJsonValue>& vectorValues);
+
+		void pushVectorAsArray(const std::vector<mJsonValue>& vectorValues);
 
 		mJsonArray move();
 

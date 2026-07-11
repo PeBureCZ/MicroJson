@@ -310,7 +310,13 @@ namespace mjs
 		m_values.emplace_back(JsonValue(value));
 	}
 
-	void JsonArray::pushVector(const std::vector<mJsonValue>& vectorValues)
+	void JsonArray::pushValues(const std::vector<mJsonValue>& vectorValues)
+	{
+		for (const auto& value : vectorValues)
+			m_values.emplace_back(value);
+	}
+
+	void JsonArray::pushVectorAsArray(const std::vector<mJsonValue>& vectorValues)
 	{
 		mJsonArray newArrayValue;
 		newArrayValue.reserve(vectorValues.size());
